@@ -39,6 +39,67 @@ graph TD
 
 ---
 
+## Technical Process Workflows & Flowcharts
+
+The following Mermaid diagrams outline the key business workflows and technical processes of SupplySync (ideal for visual aids during system presentations).
+
+### 1. Business Value Lifecycle Flow
+
+```mermaid
+graph LR
+    subgraph Procurement
+        PM["Procurement Manager"] -->|Generates| PO["Purchase Order"]
+        PO -->|Sent to| Supplier["Supplier"]
+    end
+    
+    subgraph Warehouse
+        Supplier -->|Delivers Goods| Staff["Warehouse Staff"]
+        Staff -->|Logs Delivery| Inv["Update Inventory Levels"]
+    end
+    
+    subgraph Sales Order
+        Cust["Customer Purchase"] -->|Triggers| SO["Sales Order"]
+        SO -->|Reserves Item| Inv
+        Inv -->|Dispatch & Ship| Cust
+    end
+```
+
+### 3. Concurrency Control (Pessimistic Write Locking)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor StaffA as Staff Member A
+    actor StaffB as Staff Member B
+    participant DB as PostgreSQL Database
+    
+    StaffA->>DB: Request dispatch (SELECT FOR UPDATE)
+    Note over DB: Product row locked for Staff A
+    StaffB->>DB: Request dispatch (SELECT FOR UPDATE)
+    Note over DB: Staff B request blocked (waits)
+    StaffA->>DB: Deduct stock & Commit Transaction
+    Note over DB: Lock released for Staff A
+    DB-->>StaffA: Dispatch Successful
+    Note over DB: Staff B lock acquired
+    StaffB->>DB: Check remaining stock
+    Note over DB: Stock is 0 (Invariant check fails)
+    DB-->>StaffB: Return Out of Stock Error
+```
+
+### 4. Asynchronous Event-Driven Alerts (Apache Kafka)
+
+```mermaid
+graph TD
+    Service["Product/Order Service"] -->|Adjust Stock| DB[(PostgreSQL)]
+    Service -->|Check Threshold| Check{"Stock < Reorder Level?"}
+    Check -->|Yes| Producer["Kafka Event Producer"]
+    Producer -->|Publish Event| Kafka["Kafka Topic: inventory-updates"]
+    Kafka -->|Asynchronous Delivery| Consumer["Low Stock Alert Consumer"]
+    Consumer -->|Trigger Alert| Alert["Generate Low-Stock Alert (email/log)"]
+```
+
+---
+
 ## Core Technologies
 - **Backend Framework**: Spring Boot 3.3.4 (Java 21)
 - **Database Layer**: PostgreSQL + Spring Data JPA
